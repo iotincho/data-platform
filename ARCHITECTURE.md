@@ -1,246 +1,59 @@
-# Architecture
-
-> **Status:** Draft
-> This document describes the architectural decisions behind the Terraform Data Platform Lab.
->
-> It intentionally progresses from abstract concepts to concrete implementation.
->
-> Readers are encouraged to read it sequentially.
-
----
-
-# Reading Guide
-
-This document is organized from conceptual architecture to implementation details.
-
-1. Architectural Principles
-2. Platform Responsibilities
-3. Module Contracts
-4. Platform Dependencies
-5. Repository Organization
-6. Root Modules
-7. AWS Mapping
-8. Data Flow
-9. Infrastructure Lifecycle
-10. Future Evolution
-
-The objective is to understand **why** the platform is designed this way before looking at **how** it is implemented.
-
----
-
-# 1. Architectural Principles
-
-The objective of this project is **not** to learn Terraform syntax.
-
-The objective is to learn how to design Infrastructure as Code for a modern cloud-based Data Platform.
-
-Although the platform implemented in this repository is intentionally small, every architectural decision should remain valid if the project grows in the future.
-
-## Guiding Principles
-
-* Infrastructure is fully reproducible using Terraform.
-* Infrastructure is described declaratively.
-* Modules represent **platform capabilities**, not AWS resources.
-* Components have clearly defined ownership and responsibilities.
-* Infrastructure should be easy to understand by reading the code.
-* Simplicity is preferred over premature abstraction.
-* Every module should have a single responsibility.
-
-## Non Goals
-
-This project intentionally avoids enterprise-level complexity.
-
-The first iteration will **not** include:
-
-* AWS DMS
-* Kafka
-* Redshift
-* SageMaker
-* Lake Formation
-* Multi-account deployments
-* Multi-region deployments
-* Production networking
-* Cost optimization
-
-Those topics may be introduced in future iterations.
-
----
-
-# 2. Platform Responsibilities
-
-The platform is decomposed according to business responsibilities rather than AWS services.
-
 ## Foundation
 
 ### Responsibility
 
-Provide the common infrastructure required by every other platform component.
+Provide the shared platform capabilities required by every other platform domain.
+
+Foundation is responsible for defining the common infrastructure and conventions upon which the rest of the platform is built.
+
+Its purpose is **not** to centralize infrastructure, but to own only the components that are truly shared across domains.
+
+### Current Responsibilities
+
+The first iteration intentionally keeps Foundation minimal.
+
+It currently owns:
+
+* Platform-wide naming conventions
+* Common resource tags
+* Shared platform configuration
+
+### Future Responsibilities
+
+Foundation should evolve only when another platform domain requires new shared capabilities.
+
+Examples include:
+
+* VPC
+* Private Subnets
+* Security Groups
+* VPC Endpoints
+* Shared KMS Keys
+
+These capabilities will **not** be implemented proactively.
+
+They will be introduced only when a downstream component requires them.
 
 ### Owns
 
-* Terraform backend
-* Shared tags
-* Global configuration
-* Common IAM resources (if required)
-
-### Exposes
-
-Platform-wide configuration consumed by other domains.
-
----
-
-## Data Lake
-
-### Responsibility
-
-Own the lifecycle of analytical datasets.
-
-Responsible for receiving raw data, storing curated datasets and executing ETL processes.
-
-### Owns
-
-* Bronze storage
-* Silver storage
-* Glue Catalog
-* Glue Jobs
+* Shared platform conventions
+* Shared platform configuration
 
 ### Consumes
 
-* Foundation outputs
+Foundation does not depend on any business domain.
+
+It only depends on the Terraform remote backend created during the bootstrap process.
 
 ### Exposes
 
-* Bronze bucket
-* Silver bucket
-* Glue Catalog Database
+Platform-wide configuration consumed by downstream domains.
 
----
+Typical outputs include:
 
-## Analytics
-
-### Responsibility
-
-Provide query capabilities over curated datasets.
-
-Analytics should never know how data was ingested or transformed.
-
-It only consumes curated datasets.
-
-### Owns
-
-* Athena Database
-* Athena Workgroup
-
-### Consumes
-
-* Data Lake outputs
-
-### Exposes
-
-Query interfaces for analytical workloads.
-
----
-
-# 3. Module Contracts
-
-Terraform modules should expose small and well-defined interfaces.
-
-Every module should answer the following questions:
-
-* Why does this module exist?
-* What responsibility does it own?
-* Which inputs does it require?
-* Which outputs does it expose?
-* Which dependencies does it consume?
-
----
-
-## Module: data_lake
-
-### Purpose
-
-Provision the storage and metadata infrastructure required by analytical datasets.
-
-### Owns
-
-* Bronze bucket
-* Silver bucket
-* Glue Catalog
-
-### Inputs
-
-*To be defined.*
-
-### Outputs
-
-*To be defined.*
-
----
-
-## Module: glue_job
-
-### Purpose
-
-Deploy reusable Glue ETL jobs.
-
-Each Glue Job is responsible for transforming one dataset.
-
-### Owns
-
-* Glue Job
-* IAM Role
-* CloudWatch Logs
-
-### Inputs
-
-*To be defined.*
-
-### Outputs
-
-*To be defined.*
-
----
-
-## Module: athena
-
-### Purpose
-
-Provide query capabilities over curated datasets.
-
-### Owns
-
-* Athena Database
-* Athena Workgroup
-
-### Inputs
-
-*To be defined.*
-
-### Outputs
-
-*To be defined.*
-
----
-
-# 4. Platform Dependencies
-
-The platform follows a one-way dependency graph.
-
-```text
-Foundation
-      │
-      ▼
-Data Lake
-      │
-      ▼
-Analytics
-```
-
-Dependencies represent ownership boundaries.
-
-A domain should never manage infrastructure owned by another domain.
-
-Instead, it should consume exported outputs through Terraform Remote State.
+* project name
+* environment
+* common tags
 
 ---
 
@@ -251,114 +64,109 @@ The repository mirrors the platform architecture.
 ```text
 terraform-data-platform-lab/
 
-├── modules/
-│
 ├── live/
+│   ├── bootstrap/
+│   └── dev/
+│       ├── foundation/
+│       ├── data_lake/
+│       └── analytics/
+│
+├── modules/
 │
 ├── docs/
 │
 ├── README.md
-│
 ├── AGENTS.md
-│
 └── ARCHITECTURE.md
 ```
 
-## modules/
+## live/bootstrap
 
-Contains reusable Terraform modules.
+Bootstrap is a special Root Module.
 
-Modules are libraries.
+It exists solely to solve the Terraform bootstrapping problem.
 
-They are **not** executed directly.
+Initially it uses a **local Terraform backend** in order to provision the infrastructure required by every other Root Module.
 
----
+Once the remote backend exists, Bootstrap is no longer part of the normal deployment workflow.
 
-## live/
+Its only responsibility is creating the infrastructure that enables remote Terraform state.
 
-Contains deployable Root Modules.
+## live/dev
 
-Each directory represents an independent Terraform State.
-
-Only directories inside `live/` should execute Terraform commands.
-
----
-
-## docs/
-
-Additional project documentation.
-
----
-
-# 6. Root Modules
-
-The initial implementation contains a single development environment.
-
-```text
-live/
-
-└── dev/
-
-      foundation/
-
-      data_lake/
-
-      analytics/
-```
+Contains deployable Root Modules for the development environment.
 
 Each Root Module:
 
-* owns a single Terraform State
-* consumes remote outputs from upstream domains
-* exposes outputs required by downstream domains
+* owns an independent Terraform State
+* exposes only the outputs required by downstream domains
+* consumes upstream outputs using Terraform Remote State
 
----
+## modules
 
-# 7. AWS Mapping
+Contains reusable Terraform modules.
 
-AWS services are implementation details of platform capabilities.
+Modules represent **platform capabilities**, not AWS resources.
 
-| Platform Capability | AWS Services                           |
-| ------------------- | -------------------------------------- |
-| Foundation          | Terraform Backend, IAM                 |
-| Data Lake           | Amazon S3, AWS Glue, Glue Data Catalog |
-| Analytics           | Amazon Athena                          |
+Modules are libraries and should never be executed directly.
 
-The architecture should continue making sense even if the underlying cloud services change.
-
----
-
-# 8. Data Flow
-
-The first iteration implements a single ETL pipeline.
-
-```text
-CSV
-
-↓
-
-Bronze (S3)
-
-↓
-
-Glue ETL
-
-↓
-
-Silver (Parquet)
-
-↓
-
-Athena
-```
-
-Future datasets should be added by instantiating additional Glue Job modules without requiring architectural changes.
+Only Root Modules inside `live/` execute Terraform.
 
 ---
 
 # 9. Infrastructure Lifecycle
 
-Infrastructure follows a GitOps-inspired workflow.
+The platform follows a two-stage provisioning model.
+
+## Stage 1 — Bootstrap
+
+Bootstrap is executed once using a local Terraform backend.
+
+Its responsibility is to provision the infrastructure required by the remote Terraform backend.
+
+```text
+Local Backend
+
+↓
+
+Bootstrap
+
+↓
+
+Terraform State Bucket
+```
+
+Once completed, every subsequent Root Module uses the remote backend.
+
+---
+
+## Stage 2 — Platform Provisioning
+
+After the backend exists, the platform can be deployed incrementally.
+
+```text
+Foundation
+
+↓
+
+Data Lake
+
+↓
+
+Analytics
+```
+
+Each Root Module:
+
+* owns its own Terraform State
+* consumes upstream outputs through Remote State
+* can evolve independently
+
+---
+
+## Deployment Workflow
+
+Infrastructure changes follow a GitOps-inspired workflow.
 
 ```text
 Developer
@@ -398,19 +206,75 @@ Infrastructure must never be modified manually through the AWS Console.
 
 ---
 
-# 10. Future Evolution
+# Foundation Evolution
 
-The following capabilities are intentionally postponed.
+Foundation is intentionally designed to evolve incrementally.
 
-* CDC ingestion (AWS DMS)
-* Streaming pipelines
-* Redshift
-* SageMaker
-* Lake Formation
-* Data Quality
-* Observability
-* Cost Governance
-* Multiple environments
-* Separate Terraform Modules repository
+New shared infrastructure should only be introduced when required by downstream platform domains.
 
-The architecture should allow these features to be introduced without significant refactoring.
+For example:
+
+```text
+Current Foundation
+
+↓
+
+Tags
+
+Naming
+
+Shared Configuration
+```
+
+Future requirements may naturally evolve Foundation into:
+
+```text
+Foundation
+
+↓
+
+Networking
+
+↓
+
+Security
+
+↓
+
+Shared Encryption
+
+↓
+
+Platform Services
+```
+
+The architecture intentionally avoids implementing these capabilities before they are needed.
+
+This keeps the platform simple while allowing future growth without major architectural changes.
+
+# Architecture Decision Log
+
+## AD-001
+
+Bootstrap is implemented as an independent Root Module using a local backend.
+
+Reason:
+Terraform cannot provision its own remote backend.
+
+---
+
+## AD-002
+
+Foundation represents shared platform capabilities, not AWS infrastructure.
+
+Reason:
+Avoid centralizing unrelated resources.
+
+---
+
+## AD-003
+
+Networking is intentionally postponed until a downstream component requires it.
+
+Reason:
+Avoid premature infrastructure.
