@@ -1,0 +1,44 @@
+{
+  "dataset": "orders",
+  "layer": "bronze",
+  "description": "Raw daily orders dataset as received from the operational system.",
+  "format": "csv",
+  "columns": [
+    {
+      "name": "order_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique order identifier."
+    },
+    {
+      "name": "customer_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique customer identifier."
+    },
+    {
+      "name": "product_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique product identifier."
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "nullable": false,
+      "description": "Number of purchased units."
+    },
+    {
+      "name": "unit_price",
+      "type": "decimal(10,2)",
+      "nullable": false,
+      "description": "Price paid for a single unit."
+    },
+    {
+      "name": "order_timestamp",
+      "type": "string",
+      "nullable": false,
+      "description": "Purchase timestamp in ISO-8601 format."
+    }
+  ]
+}

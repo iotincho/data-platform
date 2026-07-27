@@ -1,0 +1,54 @@
+{
+  "dataset": "orders",
+  "layer": "silver",
+  "description": "Curated orders dataset optimized for analytical workloads.",
+  "format": "parquet",
+  "partition_keys": [
+    "year",
+    "month"
+  ],
+  "columns": [
+    {
+      "name": "order_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique order identifier."
+    },
+    {
+      "name": "customer_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique customer identifier."
+    },
+    {
+      "name": "product_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Unique product identifier."
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "nullable": false,
+      "description": "Number of purchased units."
+    },
+    {
+      "name": "unit_price",
+      "type": "decimal(10,2)",
+      "nullable": false,
+      "description": "Price paid for a single unit."
+    },
+    {
+      "name": "order_timestamp",
+      "type": "timestamp",
+      "nullable": false,
+      "description": "Normalized purchase timestamp."
+    },
+    {
+      "name": "order_date",
+      "type": "date",
+      "nullable": false,
+      "description": "Date extracted from order_timestamp."
+    }
+  ]
+}
