@@ -21,15 +21,22 @@ jobs:
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v4
 
-      - name: Install MiniStack
+      - name: Start Ministack
         run: |
-          curl -fsSL https://get.ministack.io | sh
-
-      - name: Start MiniStack
+          docker run -d \
+            -p 4566:4566 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --name ministack \
+            ministackorg/ministack:latest
+          
+      - name: Wait for Ministack Readiness
         run: |
-          ministack start
+          echo "Waiting for Ministack to be ready..."
+          timeout 60s bash -c 'until curl -s http://localhost:4566/_ministack/health; do sleep 2; done'
+          echo "Ministack is up!"
 
-      - name: Configure AWS Environment
+
+      - name: Configure MiniStack Environment
         run: |
           echo "AWS_ACCESS_KEY_ID=ministack" >> "$GITHUB_ENV"
           echo "AWS_SECRET_ACCESS_KEY=ministack" >> "$GITHUB_ENV"
