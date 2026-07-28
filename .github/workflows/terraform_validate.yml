@@ -1,0 +1,46 @@
+name: Infrastructure Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: Validate Terraform Infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Install MiniStack
+        run: |
+          curl -fsSL https://get.ministack.io | sh
+
+      - name: Start MiniStack
+        run: |
+          ministack start
+
+      - name: Configure AWS Environment
+        run: |
+          echo "AWS_ACCESS_KEY_ID=ministack" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=ministack" >> "$GITHUB_ENV"
+          echo "AWS_REGION=us-east-1" >> "$GITHUB_ENV"
+          echo "AWS_ENDPOINT_URL=http://localhost:4566" >> "$GITHUB_ENV"
+
+      - name: Verify MiniStack
+        run: |
+          aws --endpoint-url "$AWS_ENDPOINT_URL" s3 ls
+
+      - name: Validate Terraform
+        run: |
+          chmod +x scripts/validate_terraform.sh
+          ./scripts/validate_terraform.sh
