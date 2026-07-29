@@ -47,3 +47,8 @@ output "silver_table_names" {
   description = "Glue Catalog table names for the Silver layer, keyed by dataset."
   value       = module.silver_layer.dataset_table_names
 }
+
+output "silver_dataset_job_names" {
+  description = "Silver dataset transformation job names keyed by output dataset."
+  value       = module.silver.dataset_job_names
+}
